@@ -37,14 +37,50 @@ _OI_LOCK = threading.RLock()
 import threading as _th, time as _tm
 _HL_RL_LOCK = _th.Lock()
 _HL_RL_LAST = [0.0]
-_HL_RL_MIN_GAP = float(__import__("os").environ.get("HL_INFO_MIN_GAP_SEC", "0.7"))
+_HL_RL_MIN_GAP = float(__import__("os").environ.get("HL_INFO_MIN_GAP_SEC", "0.15"))
 
 def _hl_rl_acquire():
+    """Lightweight rate-limit pacing — keeps requests under HL's per-IP burst threshold.
+    Default 150ms gap (~6.6 req/s) is well under HL's documented 1200 weight/min
+    when typical info call weight is ~20. Override via HL_INFO_MIN_GAP_SEC env."""
     with _HL_RL_LOCK:
         gap = _tm.time() - _HL_RL_LAST[0]
         if gap < _HL_RL_MIN_GAP:
             _tm.sleep(_HL_RL_MIN_GAP - gap)
         _HL_RL_LAST[0] = _tm.time()
+
+
+def _hl_post(body: bytes, timeout: float = 12.0, max_retries: int = 3):
+    """POST to HL /info with per-call exponential backoff on 429/5xx.
+    Returns parsed JSON or None. Uses keep-alive when possible."""
+    import urllib.error
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            _hl_rl_acquire()
+            req = urllib.request.Request("https://api.hyperliquid.xyz/info",
+                data=body,
+                headers={"Content-Type": "application/json",
+                         "Accept-Encoding": "identity",
+                         "Connection": "keep-alive"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            last_err = e
+            if e.code == 429:
+                # Exponential backoff: 0.8 → 1.6 → 3.2s
+                _tm.sleep(0.8 * (2 ** attempt))
+                continue
+            if 500 <= e.code < 600:
+                _tm.sleep(0.5 * (2 ** attempt))
+                continue
+            raise
+        except Exception as e:
+            last_err = e
+            _tm.sleep(0.3 * (2 ** attempt))
+    if last_err:
+        raise last_err
+    return None
 
 def get_candles(coin: str, interval: str, n: int) -> Optional[pd.DataFrame]:
     """Return cached candles if fresh, else fetch + cache + return."""
@@ -66,11 +102,7 @@ def get_candles(coin: str, interval: str, n: int) -> Optional[pd.DataFrame]:
         body = json.dumps({"type": "candleSnapshot",
                             "req": {"coin": coin, "interval": interval,
                                     "startTime": start_ms, "endTime": end_ms}}).encode()
-        req = urllib.request.Request("https://api.hyperliquid.xyz/info", data=body,
-                                       headers={"Content-Type":"application/json"})
-        _hl_rl_acquire()
-        with urllib.request.urlopen(req, timeout=12) as r:
-            raw = json.loads(r.read())
+        raw = _hl_post(body, timeout=12.0)
         if not raw or not isinstance(raw, list): return None
         df = pd.DataFrame(raw)
         for c_src, c_dst in [("c","close"),("h","high"),("l","low"),
@@ -96,12 +128,9 @@ def get_mids() -> Optional[dict]:
             return cached["df"]   # actually a dict here
 
     try:
-        req = urllib.request.Request("https://api.hyperliquid.xyz/info",
-            data=b'{"type":"allMids"}',
-            headers={"Content-Type":"application/json"})
-        _hl_rl_acquire()
-        with urllib.request.urlopen(req, timeout=8) as r:
-            mids = {k: float(v) for k, v in json.loads(r.read()).items()}
+        result = _hl_post(b'{"type":"allMids"}', timeout=8.0)
+        if not isinstance(result, dict): return None
+        mids = {k: float(v) for k, v in result.items()}
         with _LOCK:
             _CACHE[key] = {"ts": time.time(), "df": mids}
         return mids
@@ -111,12 +140,7 @@ def get_mids() -> Optional[dict]:
 def _refresh_oi_history():
     """Fetch HL metaAndAssetCtxs every 15min, append OI snapshot per coin."""
     try:
-        req = urllib.request.Request("https://api.hyperliquid.xyz/info",
-            data=b'{"type":"metaAndAssetCtxs"}',
-            headers={"Content-Type":"application/json"})
-        _hl_rl_acquire()
-        with urllib.request.urlopen(req, timeout=12) as r:
-            data = json.loads(r.read())
+        data = _hl_post(b'{"type":"metaAndAssetCtxs"}', timeout=12.0)
         if not isinstance(data, list) or len(data) < 2: return
         meta, ctxs = data[0], data[1]
         universe = meta.get("universe", [])

@@ -108,7 +108,7 @@ def start_all():
     strategies = enabled_strategies()
     threads = []
     for i, s in enumerate(strategies):
-        delay = i * 5
+        import random; delay = i * 12 + random.uniform(0, 4)
         def _delayed_start(strat, d):
             time.sleep(d)
             _scan_loop(strat)

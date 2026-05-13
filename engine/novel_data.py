@@ -52,8 +52,13 @@ def _http_get(url: str, timeout: float = 5.0, headers: Optional[dict] = None) ->
 
 
 def _http_post_rl(url: str, payload: dict, timeout: float = 5.0) -> Optional[dict]:
-    """HL /info POST that acquires the shared rate-limiter first."""
-    _hl_rl_acquire()
+    """HL /info POST routed through shared retry-with-backoff helper."""
+    if url == "https://api.hyperliquid.xyz/info":
+        try:
+            from .hl_cache import _hl_post
+            return _hl_post(json.dumps(payload).encode(), timeout=timeout)
+        except Exception:
+            return None
     return _http_post(url, payload, timeout)
 
 def _http_post(url: str, payload: dict, timeout: float = 5.0) -> Optional[dict]:
@@ -611,8 +616,8 @@ def start_all():
         ("mev", _refresh_mev, 30.0),                # 30s
         ("listings", _refresh_listings, 120.0),     # 2min
         ("lst", _refresh_lst, 600.0),               # 10min
-        ("pyth", _refresh_pyth, 5.0),               # 5s
-        ("hl_marks", _refresh_hl_marks, 4.0),       # 4s
+        ("pyth", _refresh_pyth, 8.0),               # 8s
+        ("hl_marks", _refresh_hl_marks, 10.0),      # 10s — eased load
     ]
     for name, fn, interval in schedule:
         t = threading.Thread(target=_loop, args=(name, fn, interval),

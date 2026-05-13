@@ -31,12 +31,14 @@ def _csv_env(key: str, default: str) -> List[str]:
     return [c.strip() for c in raw.split(",") if c.strip()]
 
 
-# Common HL-perp universe
+# Common HL-perp universe — large engines should use MAJORS to stay under HL rate limits
 DEFAULT_UNIVERSE = ["BTC", "ETH", "SOL", "AVAX", "DOGE", "LINK", "XRP", "BNB",
                     "ADA", "TON", "NEAR", "ARB", "OP", "SUI", "INJ", "TIA",
                     "JUP", "HYPE", "AAVE", "WIF", "PEPE", "FET", "APT", "ATOM",
                     "DOT", "FIL", "LDO", "WLD", "STX", "IMX", "SEI", "PYTH",
                     "JTO", "STRK", "ENA", "ETHFI", "RENDER"]
+MAJORS = ["BTC", "ETH", "SOL", "AVAX", "DOGE", "LINK", "XRP", "BNB",
+          "HYPE", "ARB", "OP", "SUI", "TIA", "JUP", "AAVE"]
 
 
 def all_strategies() -> List[StrategyConfig]:
@@ -49,7 +51,7 @@ def all_strategies() -> List[StrategyConfig]:
             timeframe="1h",
             scan_interval_sec=int(os.environ.get("TUNLK_INTERVAL", "1800")),  # 30min
             history_bars=200,
-            universe=_csv_env("TUNLK_UNIVERSE", ",".join(DEFAULT_UNIVERSE)),
+            universe=_csv_env("TUNLK_UNIVERSE", ",".join(MAJORS)),
             enabled=os.environ.get("TUNLK_ENABLED", "1") == "1",
         ),
         # 2) HLP stress — vault drain → fade extension. Fires on BTC/ETH primarily.
@@ -72,7 +74,7 @@ def all_strategies() -> List[StrategyConfig]:
             timeframe="15m",
             scan_interval_sec=int(os.environ.get("CTGON_INTERVAL", "120")),
             history_bars=120,
-            universe=_csv_env("CTGON_UNIVERSE", ",".join(DEFAULT_UNIVERSE)),
+            universe=_csv_env("CTGON_UNIVERSE", ",".join(MAJORS)),
             enabled=os.environ.get("CTGON_ENABLED", "1") == "1",
         ),
         # 4) MEV revert — Uniswap-v3 swap dislocation. Fast scan (60s), narrow universe.
@@ -95,7 +97,7 @@ def all_strategies() -> List[StrategyConfig]:
             timeframe="15m",
             scan_interval_sec=int(os.environ.get("LSTDC_INTERVAL", "300")),
             history_bars=120,
-            universe=_csv_env("LSTDC_UNIVERSE", ",".join(DEFAULT_UNIVERSE)),
+            universe=_csv_env("LSTDC_UNIVERSE", ",".join(MAJORS)),
             enabled=os.environ.get("LSTDC_ENABLED", "1") == "1",
         ),
         # 6) LST discount — ETH-only signal.
