@@ -20,11 +20,11 @@ _LOCK = threading.RLock()
 
 # Cache TTL per timeframe (seconds). Aim for < bar duration so fresh data flows.
 _TTL = {
-    "1m":  30,    # half a bar
-    "5m":  60,    # well within bar
-    "15m": 120,
-    "1h":  300,
-    "4h":  600,
+    "1m":  30,
+    "5m":  240,   # 4min — still well within 5m bar
+    "15m": 600,   # 10min — well within 15m bar
+    "1h":  1800,  # 30min — within 1h bar
+    "4h":  3600,
 }
 
 # OI history: {coin: [(ts, oi_usd), ...]} — last 200 snapshots

@@ -27,6 +27,38 @@ def _fetch_candles(coin: str, interval: str, n: int) -> Optional[pd.DataFrame]:
     return hl_cache.get_candles(coin, interval, n)
 
 
+
+def _has_novel_data(strategy: StrategyConfig, coin: str) -> bool:
+    """Return True if this strategy's required novel_data is available for `coin`.
+    Avoids burning HL candle fetches on coins that have no actionable signal."""
+    name = strategy.engine_name
+    if name == "token-unlock-v1":
+        v = novel_data.get_supply_velocity(coin)
+        return bool(v and v.get("delta_24h_pct") is not None)
+    if name == "hlp-stress-v1":
+        v = novel_data.get_hlp_stress()
+        return bool(v and v.get("drain_1h_pct") is not None)
+    if name == "contagion-v1":
+        v = novel_data.get_whale_stress_signals()
+        return bool(v and v.get("stress_by_coin", {}).get(coin))
+    if name == "mev-revert-v1":
+        return bool(novel_data.get_mev_dislocation(coin))
+    if name == "listings-decay-v1":
+        v = novel_data.get_listing_age_and_funding(coin)
+        if not v: return False
+        # only scan young coins
+        return v.get("listing_age_hours", 99999) <= 72
+    if name == "lst-discount-v1":
+        return bool(novel_data.get_lst_discounts())
+    if name == "oracle-lag-v1":
+        v = novel_data.get_pyth_hl_basis(coin)
+        if not v or v.get("basis_bps") is None: return False
+        # only scan if basis exceeds threshold (else no signal possible)
+        return abs(v.get("basis_bps", 0)) >= 10   # 10bp min, threshold is 15bp
+    return True
+
+
+
 def _attach_strategy_data(strategy: StrategyConfig, df: pd.DataFrame):
     name = strategy.engine_name
     coin = df.attrs.get("coin", "")
@@ -61,6 +93,9 @@ def _attach_strategy_data(strategy: StrategyConfig, df: pd.DataFrame):
 
 
 def _scan_one_coin(strategy: StrategyConfig, evaluate_fn, coin: str):
+    # Data-driven gate: only fetch candles if novel_data has actionable signal for this coin
+    if not _has_novel_data(strategy, coin):
+        return
     df = _fetch_candles(coin, strategy.timeframe, strategy.history_bars)
     if df is None or len(df) < 30:
         return
@@ -95,7 +130,7 @@ def _scan_loop(strategy: StrategyConfig):
           f"({len(strategy.universe)} coins))", flush=True)
     while True:
         try:
-            pace_sec = float(os.environ.get("SCAN_PACE_SEC", "3.0"))
+            pace_sec = float(os.environ.get("SCAN_PACE_SEC", "0.5"))
             for coin in strategy.universe:
                 _scan_one_coin(strategy, evaluate_fn, coin)
                 time.sleep(pace_sec)
