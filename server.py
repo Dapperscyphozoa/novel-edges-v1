@@ -67,7 +67,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/health":
                 _json(self, 200, {
                     "ok": True,
-                    "service": "strategies-bundle-v1",
+                    "service": "novel-edges-v1",
                     "strategies": [s.engine_name for s in enabled_strategies()],
                     "ts": int(time.time()*1000),
                 })
@@ -153,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     port = int(os.environ.get("PORT", "10000"))
-    print(f"strategies-bundle-v1 starting on :{port}", flush=True)
+    print(f"novel-edges-v1 starting on :{port}", flush=True)
     print(f"  enabled strategies: {[s.engine_name for s in enabled_strategies()]}", flush=True)
 
     # Start shared HL data + OI cache (seeds OI history immediately)
