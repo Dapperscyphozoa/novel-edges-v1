@@ -95,9 +95,10 @@ def _scan_loop(strategy: StrategyConfig):
           f"({len(strategy.universe)} coins))", flush=True)
     while True:
         try:
+            pace_sec = float(os.environ.get("SCAN_PACE_SEC", "3.0"))
             for coin in strategy.universe:
                 _scan_one_coin(strategy, evaluate_fn, coin)
-                time.sleep(1.2)
+                time.sleep(pace_sec)
         except Exception as e:
             print(f"[{strategy.engine_name}] scan loop err: {e}", flush=True)
         time.sleep(strategy.scan_interval_sec)
