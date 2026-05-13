@@ -209,7 +209,7 @@ _WHALES_LIST: List[str] = []     # addresses
 _WHALES_LAST_REFRESH = 0
 _WHALES_STATE_CACHE: Dict[str, Any] = {"ts": 0, "stress_by_coin": {}}
 
-def _refresh_whale_list(top_n: int = 30):
+def _refresh_whale_list(top_n: int = 8):
     """Scrape HL leaderboard for top-N by 30d PnL (filters: equity > $50k)."""
     global _WHALES_LIST, _WHALES_LAST_REFRESH
     if time.time() - _WHALES_LAST_REFRESH < 3600:
