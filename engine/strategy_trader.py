@@ -81,16 +81,22 @@ def _init_db_for_engine(engine_name: str):
 
 def _pm_check(engine_name: str, coin: str, side: str, notional: float,
                 sl_distance_pct: Optional[float]) -> dict:
-    """Call PM /check for this strategy."""
+    """Call PM /check for this strategy. Respects PM_CHECK_ENABLED=0 to bypass."""
+    if os.environ.get("PM_CHECK_ENABLED", "1") != "1":
+        return {"allow": True, "reason": "pm_check_disabled",
+                "size_fraction": 1.0, "confluence_mult": 1.0}
     pm_url = os.environ.get("PM_URL", "https://portfolio-manager-7df2.onrender.com")
+    pm_token = os.environ.get("PM_TOKEN", "")
     try:
         body = json.dumps({
             "engine": engine_name, "coin": coin, "side": side,
             "notional": notional, "sl_distance_pct": sl_distance_pct,
             "is_live": False,
         }).encode()
+        headers = {"Content-Type": "application/json"}
+        if pm_token: headers["X-PM-Auth"] = pm_token
         req = urllib.request.Request(f"{pm_url}/check", data=body, method="POST",
-                                      headers={"Content-Type": "application/json"})
+                                      headers=headers)
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.loads(r.read())
     except Exception as e:
