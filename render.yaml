@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: novel-edges-v1
+    env: python
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: STATE_DIR
+        value: /tmp/novel-state
+      - key: PM_URL
+        value: https://portfolio-manager-7df2.onrender.com
+      - key: BASE_NOTIONAL_USD
+        value: "100"
+      - key: PM_TOKEN
+        value: "multica-pm-token"
+      - key: GITHUB_TOKEN
+        sync: false
