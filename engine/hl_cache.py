@@ -69,7 +69,7 @@ def get_candles(coin: str, interval: str, n: int) -> Optional[pd.DataFrame]:
                                     "startTime": start_ms, "endTime": end_ms}}).encode()
         req = urllib.request.Request("https://api.hyperliquid.xyz/info", data=body,
                                        headers={"Content-Type":"application/json"})
-        _hl_rl_acquire()
+            _hl_rl_acquire()
             with urllib.request.urlopen(req, timeout=12) as r:
             raw = json.loads(r.read())
         if not raw or not isinstance(raw, list): return None
@@ -100,7 +100,7 @@ def get_mids() -> Optional[dict]:
         req = urllib.request.Request("https://api.hyperliquid.xyz/info",
             data=b'{"type":"allMids"}',
             headers={"Content-Type":"application/json"})
-        _hl_rl_acquire()
+            _hl_rl_acquire()
             with urllib.request.urlopen(req, timeout=8) as r:
             mids = {k: float(v) for k, v in json.loads(r.read()).items()}
         with _LOCK:
@@ -115,7 +115,7 @@ def _refresh_oi_history():
         req = urllib.request.Request("https://api.hyperliquid.xyz/info",
             data=b'{"type":"metaAndAssetCtxs"}',
             headers={"Content-Type":"application/json"})
-        _hl_rl_acquire()
+            _hl_rl_acquire()
             with urllib.request.urlopen(req, timeout=12) as r:
             data = json.loads(r.read())
         if not isinstance(data, list) or len(data) < 2: return
