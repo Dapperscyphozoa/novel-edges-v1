@@ -32,6 +32,13 @@ from typing import Any, Dict, List, Optional
 
 _LOCK = threading.RLock()
 
+# Use shared HL rate-limiter from hl_cache so we don't compete with scanner threads
+try:
+    from .hl_cache import _hl_rl_acquire
+except Exception:
+    def _hl_rl_acquire(): pass
+
+
 def _http_get(url: str, timeout: float = 5.0, headers: Optional[dict] = None) -> Optional[dict]:
     hdrs = {"User-Agent": "novel-edges/1.0", "Accept": "application/json"}
     if headers:
@@ -42,6 +49,12 @@ def _http_get(url: str, timeout: float = 5.0, headers: Optional[dict] = None) ->
             return json.loads(r.read())
     except Exception:
         return None
+
+
+def _http_post_rl(url: str, payload: dict, timeout: float = 5.0) -> Optional[dict]:
+    """HL /info POST that acquires the shared rate-limiter first."""
+    _hl_rl_acquire()
+    return _http_post(url, payload, timeout)
 
 def _http_post(url: str, payload: dict, timeout: float = 5.0) -> Optional[dict]:
     try:
@@ -146,7 +159,7 @@ _HLP_LATEST = {"ts": 0, "data": None}
 
 def _refresh_hlp():
     now = time.time()
-    res = _http_post(
+    res = _http_post_rl(
         "https://api.hyperliquid.xyz/info",
         {"type": "vaultDetails", "vaultAddress": HLP_VAULT_ADDRESS},
         timeout=8.0,
@@ -235,7 +248,7 @@ def _refresh_whale_list(top_n: int = 30):
         pass
 
 def _whale_state(addr: str) -> Optional[dict]:
-    return _http_post(
+    return _http_post_rl(
         "https://api.hyperliquid.xyz/info",
         {"type": "clearinghouseState", "user": addr},
         timeout=6.0,
@@ -408,7 +421,7 @@ _LISTING_TS = 0
 def _refresh_listings():
     global _LISTING_TS
     now = time.time()
-    res = _http_post(
+    res = _http_post_rl(
         "https://api.hyperliquid.xyz/info",
         {"type": "metaAndAssetCtxs"},
         timeout=6.0,
@@ -508,7 +521,7 @@ _HL_MARK_TS = 0
 
 def _refresh_hl_marks():
     global _HL_MARK_TS
-    res = _http_post("https://api.hyperliquid.xyz/info", {"type": "allMids"}, timeout=4.0)
+    res = _http_post_rl("https://api.hyperliquid.xyz/info", {"type": "allMids"}, timeout=4.0)
     if not isinstance(res, dict):
         return
     with _LOCK:

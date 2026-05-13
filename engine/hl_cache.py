@@ -37,7 +37,7 @@ _OI_LOCK = threading.RLock()
 import threading as _th, time as _tm
 _HL_RL_LOCK = _th.Lock()
 _HL_RL_LAST = [0.0]
-_HL_RL_MIN_GAP = float(__import__("os").environ.get("HL_INFO_MIN_GAP_SEC", "0.25"))
+_HL_RL_MIN_GAP = float(__import__("os").environ.get("HL_INFO_MIN_GAP_SEC", "0.7"))
 
 def _hl_rl_acquire():
     with _HL_RL_LOCK:
