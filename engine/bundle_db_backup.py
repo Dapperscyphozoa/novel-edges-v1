@@ -15,8 +15,8 @@ import urllib.error
 from typing import Optional, Dict
 
 
-_GITHUB_OWNER = "Dapperscyphozoa"
-_GITHUB_REPO = "multica"
+_GITHUB_OWNER = os.environ.get("GITHUB_REPO", "Dapperscyphozoa/novel-edges-v1").split("/")[0] if "/" in os.environ.get("GITHUB_REPO", "Dapperscyphozoa/") else "Dapperscyphozoa"
+_GITHUB_REPO = os.environ.get("GITHUB_REPO", "Dapperscyphozoa/novel-edges-v1").split("/")[-1]
 _BRANCH = "main"
 _DEBOUNCE_SECONDS = 30
 _MAX_DB_BYTES = 50 * 1024 * 1024
